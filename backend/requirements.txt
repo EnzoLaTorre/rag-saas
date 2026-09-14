@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+sqlmodel
+openai
+chromadb
+pypdf
+python-docx
+python-multipart
+pydantic-settings
+pyjwt
+bcrypt
