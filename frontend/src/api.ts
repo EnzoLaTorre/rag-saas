@@ -1,7 +1,9 @@
 import axios from 'axios'
-import { getToken } from './auth'
+import { clearToken, getToken } from './auth'
 
-const http = axios.create({ baseURL: '/api' })
+const API_BASE = import.meta.env.VITE_API_URL ?? '/api'
+
+const http = axios.create({ baseURL: API_BASE })
 
 http.interceptors.request.use((config) => {
   const token = getToken()
@@ -10,6 +12,19 @@ http.interceptors.request.use((config) => {
   }
   return config
 })
+
+http.interceptors.response.use(
+  (response) => response,
+  (error: unknown) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      clearToken()
+      if (window.location.pathname !== '/login') {
+        window.location.assign('/login')
+      }
+    }
+    return Promise.reject(error)
+  },
+)
 
 export interface UserInfo {
   id: number
@@ -36,6 +51,14 @@ export interface ChatSource {
   text: string
   document_id: number
   chunk_index: number
+}
+
+export interface ChatMessageInfo {
+  id: number
+  question: string
+  answer: string
+  sources_json: string
+  created_at: string
 }
 
 export async function register(data: {
@@ -80,6 +103,34 @@ export async function deleteDocument(id: number) {
   return res.data
 }
 
+export async function getHistory(): Promise<ChatMessageInfo[]> {
+  const res = await http.get('/chat/history')
+  return res.data
+}
+
+export type StreamEvent =
+  | { type: 'sources'; sources: ChatSource[] }
+  | { type: 'token'; content: string }
+  | { type: 'done'; answer: string; sources: ChatSource[] }
+  | { type: 'error'; message: string }
+
+export function parseEvent(raw: string): StreamEvent | null {
+  const line = raw.trim()
+  if (!line.startsWith('data:')) return null
+  try {
+    return JSON.parse(line.slice(5).trim()) as StreamEvent
+  } catch {
+    return null
+  }
+}
+
+export function splitSSEBuffer(buffer: string): { events: StreamEvent[]; rest: string } {
+  const parts = buffer.split('\n\n')
+  const rest = parts.pop() ?? ''
+  const events = parts.map(parseEvent).filter((e): e is StreamEvent => e !== null)
+  return { events, rest }
+}
+
 export function streamChat(
   question: string,
   documentId: number | null,
@@ -90,7 +141,7 @@ export function streamChat(
     onError: (err: unknown) => void
   },
 ) {
-  fetch('/api/chat/query', {
+  fetch(`${API_BASE}/chat/query`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -99,11 +150,15 @@ export function streamChat(
     body: JSON.stringify({ question, document_id: documentId }),
   })
     .then(async (res) => {
+      if (res.status === 401) {
+        clearToken()
+        window.location.assign('/login')
+        return
+      }
       if (!res.ok || !res.body) throw new Error(await res.text())
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
-      let full = ''
       let finished = false
 
       while (true) {
@@ -111,29 +166,20 @@ export function streamChat(
         if (done) break
         buffer += decoder.decode(value, { stream: true })
 
-        const events = buffer.split('\n\n')
-        buffer = events.pop() ?? ''
+        const { events, rest } = splitSSEBuffer(buffer)
+        buffer = rest
 
-        for (const ev of events) {
-          const line = ev.trim()
-          if (!line.startsWith('data:')) continue
-          let data: Record<string, unknown>
-          try {
-            data = JSON.parse(line.slice(5).trim())
-          } catch {
-            continue
-          }
+        for (const data of events) {
           if (data.type === 'sources') {
-            handlers.onSources(data.sources as ChatSource[])
+            handlers.onSources(data.sources)
           } else if (data.type === 'token') {
-            full += String(data.content)
-            handlers.onToken(String(data.content))
+            handlers.onToken(data.content)
           } else if (data.type === 'done') {
             finished = true
-            handlers.onDone(String(data.answer), data.sources as ChatSource[])
+            handlers.onDone(data.answer, data.sources)
           } else if (data.type === 'error') {
             finished = true
-            handlers.onError(new Error(String(data.message)))
+            handlers.onError(new Error(data.message))
           }
         }
       }

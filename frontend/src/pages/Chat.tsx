@@ -1,8 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { Link } from 'react-router-dom'
 import {
+  getHistory,
   listDocuments,
   streamChat,
+  type ChatMessageInfo,
   type ChatSource,
   type DocumentInfo,
 } from '../api'
@@ -21,6 +24,8 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([])
   const [streaming, setStreaming] = useState(false)
   const [error, setError] = useState('')
+  const [history, setHistory] = useState<ChatMessageInfo[]>([])
+  const [showHistory, setShowHistory] = useState(false)
 
   useEffect(() => {
     listDocuments()
@@ -31,9 +36,19 @@ export default function Chat() {
       .catch(() => setError('No se pudieron cargar los documentos'))
   }, [])
 
+  useEffect(() => {
+    getHistory().then(setHistory).catch(() => {})
+  }, [])
+
   function handleLogout() {
     clearToken()
     window.location.href = '/login'
+  }
+
+  function handleNewConversation() {
+    setMessages([])
+    setError('')
+    setShowHistory(false)
   }
 
   function handleSubmit(e: FormEvent) {
@@ -43,6 +58,7 @@ export default function Chat() {
 
     setQuestion('')
     setError('')
+    setShowHistory(false)
     setStreaming(true)
     setMessages((prev) => [
       ...prev,
@@ -75,6 +91,7 @@ export default function Chat() {
           return next
         })
         setStreaming(false)
+        getHistory().then(setHistory).catch(() => {})
       },
       onError: (err) => {
         setError(`Error: ${String(err)}`)
@@ -95,24 +112,53 @@ export default function Chat() {
         </div>
       </header>
 
-      <div className="chat-sources-filter">
-        <label>
-          Preguntar sobre:
-          <select
-            value={documentId ?? ''}
-            onChange={(e) =>
-              setDocumentId(e.target.value ? Number(e.target.value) : null)
-            }
+      <div className="chat-toolbar">
+        <div className="chat-sources-filter">
+          <label>
+            Preguntar sobre:
+            <select
+              value={documentId ?? ''}
+              onChange={(e) =>
+                setDocumentId(e.target.value ? Number(e.target.value) : null)
+              }
+            >
+              <option value="">Todos mis documentos</option>
+              {docs.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name} ({d.status})
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="chat-actions">
+          <button
+            className="link"
+            onClick={() => setShowHistory((v) => !v)}
+            disabled={history.length === 0}
           >
-            <option value="">Todos mis documentos</option>
-            {docs.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name} ({d.status})
-              </option>
-            ))}
-          </select>
-        </label>
+            {showHistory ? 'Ocultar historial' : `Historial (${history.length})`}
+          </button>
+          <button className="link" onClick={handleNewConversation} disabled={streaming}>
+            Nueva conversación
+          </button>
+        </div>
       </div>
+
+      {showHistory && (
+        <div className="history-panel">
+          {history.length === 0 && <p className="hint">Aún no hay conversaciones.</p>}
+          {history.map((h) => (
+            <details key={h.id} className="history-item">
+              <summary>{h.question}</summary>
+              <div className="markdown">
+                <ReactMarkdown>{h.answer}</ReactMarkdown>
+              </div>
+              <p className="meta">{new Date(h.created_at).toLocaleString()}</p>
+            </details>
+          ))}
+        </div>
+      )}
 
       {error && <p className="error">{error}</p>}
 
@@ -122,7 +168,13 @@ export default function Chat() {
         )}
         {messages.map((m, i) => (
           <div key={i} className={`message ${m.role}`}>
-            {m.content}
+            {m.role === 'assistant' ? (
+              <div className="markdown">
+                <ReactMarkdown>{m.content}</ReactMarkdown>
+              </div>
+            ) : (
+              m.content
+            )}
             {m.sources && m.sources.length > 0 && (
               <div className="sources">
                 <strong>Fuentes:</strong>

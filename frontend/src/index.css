@@ -138,13 +138,65 @@ button {
   padding: 0.6rem 0.8rem;
   border-radius: 10px;
   font-size: 0.9rem;
-  white-space: pre-wrap;
   word-break: break-word;
 }
 
-.message.user { align-self: flex-end; background: #6366f1; color: #fff; }
+.message.user { align-self: flex-end; background: #6366f1; color: #fff; white-space: pre-wrap; }
 
 .message.assistant { align-self: flex-start; background: #f1f2f6; }
+
+.markdown > p { margin-bottom: 0.5rem; }
+
+.markdown > p:last-child { margin-bottom: 0; }
+
+.markdown ul, .markdown ol { padding-left: 1.2rem; margin-bottom: 0.5rem; }
+
+.markdown a { color: #6366f1; }
+
+.markdown code {
+  background: #e5e7eb;
+  padding: 0 0.25rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+.markdown pre {
+  background: #1f2430;
+  color: #f4f5f7;
+  padding: 0.6rem;
+  border-radius: 6px;
+  overflow: auto;
+  margin-bottom: 0.5rem;
+}
+
+.markdown pre code { background: none; padding: 0; }
+
+.chat-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.chat-actions { display: flex; gap: 0.25rem; }
+
+.history-panel {
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.history-item { font-size: 0.85rem; }
+
+.history-item summary { cursor: pointer; color: #6366f1; }
+
+.history-item .markdown { margin-top: 0.4rem; }
 
 .sources { margin-top: 0.6rem; font-size: 0.8rem; border-top: 1px solid #ddd; padding-top: 0.5rem; }
 

@@ -31,10 +31,24 @@ export default function Dashboard() {
   }, [])
 
   useEffect(() => {
-    reload()
-    const id = setInterval(reload, 3000)
-    return () => clearInterval(id)
-  }, [reload])
+    let active = true
+    async function load() {
+      try {
+        const data = await listDocuments()
+        if (active) setDocs(data)
+      } catch {
+        if (active) setError('No se pudieron cargar los documentos')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    void load()
+    const id = setInterval(load, 3000)
+    return () => {
+      active = false
+      clearInterval(id)
+    }
+  }, [])
 
   async function handleUpload(file: File | null) {
     if (!file) return
