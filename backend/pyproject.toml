@@ -17,6 +17,7 @@ known-first-party = ["app"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = "-q"
 markers = [
     "integration: requiere Postgres + pgvector (TEST_DATABASE_URL)",
