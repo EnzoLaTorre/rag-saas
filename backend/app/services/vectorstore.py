@@ -1,50 +1,48 @@
-from chromadb import PersistentClient
-from openai import OpenAI
+from sqlalchemy import delete
+from sqlmodel import Session, select
 
-from ..core.config import settings
-
-CHROMA_PATH = "data/chroma"
-EMBEDDING_MODEL = "text-embedding-3-small"
-
-chroma = PersistentClient(path=CHROMA_PATH)
-llm = OpenAI(api_key=settings.openai_api_key)
+from ..models import Chunk
+from .providers import get_provider
 
 
-def _collection_for(tenant_id: int):
-    return chroma.get_or_create_collection(
-        f"tenant_{tenant_id}",
-        metadata={"hnsw:space": "cosine"},
+def add_chunks(session: Session, tenant_id: int, document_id: int, chunks: list[str]) -> int:
+    embeddings = get_provider().embed(chunks)
+    session.add_all(
+        [
+            Chunk(
+                tenant_id=tenant_id,
+                document_id=document_id,
+                chunk_index=i,
+                text=text,
+                embedding=embedding,
+            )
+            for i, (text, embedding) in enumerate(zip(chunks, embeddings, strict=True))
+        ]
     )
-
-def embed_texts(texts: list[str]):
-    res = llm.embeddings.create(model=EMBEDDING_MODEL, input=texts)
-    return [item.embedding for item in res.data]
-
-def add_chunks(tenant_id: int, document_id: int, chunks: list[str]) -> int:
-    collection = _collection_for(tenant_id)
-    embeddings = embed_texts(chunks)
-    collection.add(
-        ids=[f"{document_id}_{i}" for i in range(len(chunks))],
-        embeddings=embeddings,
-        documents=chunks,
-        metadatas=[
-            {"document_id": document_id, "chunk_index": i}
-            for i in range(len(chunks))
-        ],
-    )
+    session.commit()
     return len(chunks)
 
-def search(tenant_id: int, query: str, document_id: int | None = None, top_k: int = 4):
-    collection = _collection_for(tenant_id)
-    where = {"document_id": document_id} if document_id else None
-    result = collection.query(
-        query_embeddings=embed_texts([query]),
-        n_results=top_k,
-        where=where,
-    )
-    return result
 
-def delete_document(tenant_id: int, document_id: int):
-    collection = _collection_for(tenant_id)
-    collection.delete(where={"document_id": document_id}
-)
+def search(
+    session: Session,
+    tenant_id: int,
+    query: str,
+    document_id: int | None = None,
+    top_k: int = 4,
+) -> list[Chunk]:
+    query_embedding = get_provider().embed([query])[0]
+    stmt = select(Chunk).where(Chunk.tenant_id == tenant_id)
+    if document_id is not None:
+        stmt = stmt.where(Chunk.document_id == document_id)
+    stmt = stmt.order_by(Chunk.embedding.cosine_distance(query_embedding)).limit(top_k)
+    return list(session.exec(stmt).all())
+
+
+def delete_document(session: Session, tenant_id: int, document_id: int) -> None:
+    session.exec(
+        delete(Chunk).where(
+            Chunk.tenant_id == tenant_id,
+            Chunk.document_id == document_id,
+        )
+    )
+    session.commit()

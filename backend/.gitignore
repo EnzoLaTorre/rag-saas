@@ -5,3 +5,7 @@ __pycache__/
 .env
 rag.db
 data/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/

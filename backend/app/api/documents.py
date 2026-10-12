@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -11,13 +9,15 @@ from fastapi import (
 )
 from sqlmodel import Session, select
 
+from ..core.config import settings
 from ..core.deps import get_current_user
-from ..database import get_session, engine
-from ..models import Document, DocumentStatus, User
-from ..services import ingestion, vectorstore
+from ..core.ratelimit import RateLimiter
+from ..database import get_session
+from ..models import Document, User
+from ..services import tasks, vectorstore
 
 router = APIRouter(prefix="/documents", tags=["documents"])
-DATA_DIR = Path("data/documents")
+upload_limiter = RateLimiter(settings.rate_limit_requests, settings.rate_limit_window_seconds)
 
 
 @router.post("")
@@ -27,7 +27,18 @@ def upload_document(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    if not upload_limiter.allow(f"upload:{user.id}"):
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS, "Demasiadas subidas, inténtalo en un momento"
+        )
+
     content = file.file.read()
+    max_bytes = settings.max_upload_mb * 1024 * 1024
+    if len(content) > max_bytes:
+        raise HTTPException(
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            f"El archivo supera el límite de {settings.max_upload_mb} MB",
+        )
 
     document = Document(
         tenant_id=user.tenant_id,
@@ -40,29 +51,13 @@ def upload_document(
     session.commit()
     session.refresh(document)
 
-    doc_dir = DATA_DIR / str(user.tenant_id)
+    doc_dir = settings.documents_dir / str(user.tenant_id)
     doc_dir.mkdir(parents=True, exist_ok=True)
     file_path = doc_dir / f"{document.id}_{document.name}"
     file_path.write_bytes(content)
 
-    background.add_task(process_in_background, document.id)
+    tasks.enqueue_ingest(background, document.id)
     return document
-
-
-def process_in_background(document_id: int):
-    with Session(engine) as session:
-        document = session.get(Document, document_id)
-        file_path = DATA_DIR / str(document.tenant_id) / f"{document.id}_{document.name}"
-        try:
-            content = file_path.read_bytes()
-            count = ingestion.ingest(document.name, content, document.tenant_id, document.id)
-            document.status = DocumentStatus.ready
-            document.chunk_count = count
-        except Exception as exc:
-            document.status = DocumentStatus.failed
-            document.error = str(exc)
-        session.add(document)
-        session.commit()
 
 
 @router.get("")
@@ -84,8 +79,8 @@ def delete_document(
     if not document or document.tenant_id != user.tenant_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Documento no encontrado")
 
-    vectorstore.delete_document(user.tenant_id, document_id)
-    file_path = DATA_DIR / str(user.tenant_id) / f"{document.id}_{document.name}"
+    vectorstore.delete_document(session, user.tenant_id, document_id)
+    file_path = settings.documents_dir / str(user.tenant_id) / f"{document.id}_{document.name}"
     if file_path.exists():
         file_path.unlink()
     session.delete(document)

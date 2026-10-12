@@ -2,7 +2,7 @@ from sqlmodel import Session, create_engine
 
 from .core.config import settings
 
-engine = create_engine(settings.database_url, connect_args={"check_same_thread": False})
+engine = create_engine(settings.database_url, pool_pre_ping=True)
 
 
 def get_session():

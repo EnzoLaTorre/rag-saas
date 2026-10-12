@@ -1,10 +1,10 @@
 import io
 from pathlib import Path
 
-from pypdf import PdfReader
 from docx import Document as DocxDocument
+from pypdf import PdfReader
+from sqlmodel import Session
 
-from ..core.config import settings
 from . import vectorstore
 
 CHUNK_SIZE = 1000
@@ -38,12 +38,12 @@ def chunk_text(text: str) -> list[str]:
 
 
 def ingest(
+    session: Session,
     filename: str,
     content: bytes,
     tenant_id: int,
     document_id: int,
-):
+) -> int:
     text = extract_text(filename, content)
     chunks = chunk_text(text)
-    count = vectorstore.add_chunks(tenant_id, document_id, chunks)
-    return count
+    return vectorstore.add_chunks(session, tenant_id, document_id, chunks)
