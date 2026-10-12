@@ -30,11 +30,10 @@
 
 ## Demo
 
-> _GIF/video pendiente de grabar (guion en [`docs/DEMO.md`](./docs/DEMO.md))._
+![demo](docs/demo.gif)
+
 > Sube un PDF, espera a que quede `Listo` y pregunta: verás la respuesta en
 > streaming con sus fuentes citadas.
-
-<!-- ![demo](docs/demo.gif) -->
 
 El despliegue de la demo pública (Railway + Vercel + Postgres/pgvector) está
 documentado paso a paso en [`docs/DEPLOY.md`](./docs/DEPLOY.md).
