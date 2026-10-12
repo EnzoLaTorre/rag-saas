@@ -34,7 +34,7 @@ services:
       AI_PROVIDER: ${AI_PROVIDER:-cloud}
       CLOUD_API_KEY: ${CLOUD_API_KEY:-}
       CLOUD_BASE_URL: ${CLOUD_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}
-      CLOUD_CHAT_MODEL: ${CLOUD_CHAT_MODEL:-gemini-2.5-flash}
+      CLOUD_CHAT_MODEL: ${CLOUD_CHAT_MODEL:-gemini-3.8-flash}
       CLOUD_EMBED_MODEL: ${CLOUD_EMBED_MODEL:-gemini-embedding-001}
       OLLAMA_BASE_URL: http://host.docker.internal:11434
     depends_on:
@@ -57,7 +57,7 @@ services:
       AI_PROVIDER: ${AI_PROVIDER:-cloud}
       CLOUD_API_KEY: ${CLOUD_API_KEY:-}
       CLOUD_BASE_URL: ${CLOUD_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}
-      CLOUD_CHAT_MODEL: ${CLOUD_CHAT_MODEL:-gemini-2.5-flash}
+      CLOUD_CHAT_MODEL: ${CLOUD_CHAT_MODEL:-gemini-3.8-flash}
       CLOUD_EMBED_MODEL: ${CLOUD_EMBED_MODEL:-gemini-embedding-001}
       OLLAMA_BASE_URL: http://host.docker.internal:11434
     depends_on:

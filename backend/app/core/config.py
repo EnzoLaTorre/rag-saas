@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     cloud_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
     cloud_api_key: str = ""
-    cloud_chat_model: str = "gemini-2.5-flash"
+    cloud_chat_model: str = "gemini-3.8-flash"
     cloud_embed_model: str = "gemini-embedding-001"
     cloud_embedding_dim: int = 768
 

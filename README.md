@@ -154,7 +154,7 @@ Para el modo `cloud`, configura una clave y el endpoint (por defecto Google Gemi
 AI_PROVIDER=cloud
 CLOUD_API_KEY=tu-clave
 CLOUD_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
-CLOUD_CHAT_MODEL=gemini-2.5-flash
+CLOUD_CHAT_MODEL=gemini-3.8-flash
 CLOUD_EMBED_MODEL=gemini-embedding-001
 ```
 
